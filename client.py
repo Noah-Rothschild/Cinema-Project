@@ -5,91 +5,163 @@ from tkinter import ttk, messagebox
 
 server_address = ('localhost', 12345)
 class CinemaClient:
+
     def __init__(self, root):
         self.root = root
-        self.root.title("Cinema Ticket Booking System")
-        self.create_widgets()
+        self.root.title("NewLine Cinema Ticket System")
 
-    def create_widgets(self):
-        ttk.Label(self.root, text="Movie Title:").grid(row=0, column=0, padx=10, pady=5)
-        self.title_entry = ttk.Entry(self.root)
-        self.title_entry.grid(row=0, column=1, padx=10, pady=5)
+        self.movies = []
+        self.selected_movie_id = None
 
-        ttk.Label(self.root, text="Cinema Room:").grid(row=1, column=0, padx=10, pady=5)
-        self.room_entry = ttk.Entry(self.root)
-        self.room_entry.grid(row=1, column=1, padx=10, pady=5)
+        self.dropdown = ttk.Combobox(root, state="readonly")
+        self.dropdown.pack(pady=10)
+        self.dropdown.bind("<<ComboboxSelected>>", self.on_movie_select)
 
-        ttk.Label(self.root, text="Release Date:").grid(row=2, column=0, padx=10, pady=5)
-        self.release_date_entry = ttk.Entry(self.root)
-        self.release_date_entry.grid(row=2, column=1, padx=10, pady=5)
+        self.status_label = tk.Label(root, text="")
+        self.status_label.pack()
 
-        ttk.Label(self.root, text="End Date:").grid(row=3, column=0, padx=10, pady=5)
-        self.end_date_entry = ttk.Entry(self.root)
-        self.end_date_entry.grid(row=3, column=1, padx=10, pady=5)
+        self.ticket_qty_entry = tk.Entry(root)
+        self.ticket_qty_entry.pack(pady=5)
+        self.customer_name_entry = tk.Entry(root)
+        self.customer_name_entry.pack(pady=5)
 
-        ttk.Label(self.root, text="Tickets Available:").grid(row=4, column=0, padx=10, pady=5)
-        self.tickets_entry = ttk.Entry(self.root)
-        self.tickets_entry.grid(row=4, column=1, padx=10, pady=5)
+        self.buy_btn = tk.Button(root, text="Buy Ticket", command=self.buy_ticket)
+        self.buy_btn.pack(pady=5)
+        self.add_btn = tk.Button(root, text="Add Movie", command=self.open_add_movie_window)
+        self.add_btn.pack(pady=5)
 
-        ttk.Label(self.root, text="Ticket Price:").grid(row=5, column=0, padx=10, pady=5)
-        self.price_entry = ttk.Entry(self.root)
-        self.price_entry.grid(row=5, column=1, padx=10, pady=5)
+        self.refresh_movies()
 
-        ttk.Button(self.root, text="Add Movie", command=self.add_movie).grid(row=6, columnspan=2)
+    def open_add_movie_window(self):
+        popup = tk.Toplevel(self.root)
+        popup.title("Add New Movie")
 
+        tk.Label(popup, text="Title").pack()
+        title_entry = tk.Entry(popup)
+        title_entry.pack()
 
+        tk.Label(popup, text="Cinema Room (1-7)").pack()
+        room_entry = tk.Entry(popup)
+        room_entry.pack()
 
-    def add_movie(self):
-        request = {
-            'action': 'add_movie',
-            'title': self.title_entry.get(),
-            'cinema_room': int(self.room_entry.get()),
-            'release_date': self.release_date_entry.get(),
-            'end_date': self.end_date_entry.get(),
-            'tickets_available': int(self.tickets_entry.get()),
-            'ticket_price': float(self.price_entry.get())
-        }
+        tk.Label(popup, text="Release Date (YYYY-MM-DD)").pack()
+        release_entry = tk.Entry(popup)
+        release_entry.pack()
 
-        response = send_request(request)
-        if response.get("status") == "success":
-            messagebox.showinfo("Success", "Movie added successfully!")
+        tk.Label(popup, text="End Date (YYYY-MM-DD)").pack()
+        end_entry = tk.Entry(popup)
+        end_entry.pack()
+
+        tk.Label(popup, text="Tickets Available").pack()
+        tickets_entry = tk.Entry(popup)
+        tickets_entry.pack()
+
+        tk.Label(popup, text="Ticket Price").pack()
+        price_entry = tk.Entry(popup)
+        price_entry.pack()
+
+        def submit():
+            try:
+                data = {
+                    "title": title_entry.get(),
+                    "cinema_room": int(room_entry.get()),
+                    "release_date": release_entry.get(),
+                    "end_date": end_entry.get(),
+                    "tickets_available": int(tickets_entry.get()),
+                    "ticket_price": float(price_entry.get())
+                }
+                response = send_request({"action": "add_movie", "movie": data})
+                if response["status"] == "success":
+                    messagebox.showinfo("Success", "Movie added.")
+                    self.refresh_movies()
+                    popup.destroy()
+                else:
+                    messagebox.showerror("Error", response["message"])
+            except ValueError:
+                messagebox.showerror("Input Error", "Please enter valid data.")
+
+        tk.Button(popup, text="Submit", command=submit).pack(pady=10)
+
+    def refresh_movies(self):
+        response = send_request({"action": "get_movies"})
+        if response["status"] == "success":
+            self.movies = response["movies"]
+            self.dropdown['values'] = [f"{m[0]} - {m[1]}" for m in self.movies]
         else:
-            messagebox.showerror("Error", response.get("message", "Unknown error"))
+            messagebox.showerror("Error", response["message"])
 
-    def get_movies(self):
-        request = {'action': 'get_movies'}
-        response = send_request(request)
-        if response.get("status") == "success":
-            movies = response.get("movies", [])
-            self.show_movies(movies)
-        else:
-            messagebox.showerror("Error", response.get("message", "Unknown error"))
+    def on_movie_select(self, event):
+        selected = self.dropdown.get()
+        if selected:
+            movie_id = int(selected.split(" - ")[0])
+            self.selected_movie_id = movie_id
+            for movie in self.movies:
+                if movie[0] == movie_id:
+                    self.status_label.config(text=f"Movie Title: {movie[1]}\nTickets Available: {movie[5]}\nTicket Price: R{movie[6]}")
+                    break
 
-    def book_ticket(self):
-        request = {
-            'action': 'book_ticket',
-            'movie_id': int(self.movie_id_entry.get()),
-            'customer_name': self.customer_name_entry.get(),
-            'number_of_tickets': int(self.number_of_tickets_entry.get())
-        }
+    def buy_ticket(self):
+        if not self.selected_movie_id:
+            messagebox.showwarning("Warning", "Please select a movie first.")
+            return
 
-        response = send_request(request)
-        if response.get("status") == "success":
-            messagebox.showinfo("Success", "Ticket booked successfully!")
-        else:
-            messagebox.showerror("Error", response.get("message", "Unknown error"))
+        try:
+            ticket_qty = int(self.ticket_qty_entry.get())
+            customer_name = self.customer_name_entry.get().strip()
+            if ticket_qty <= 0 or not customer_name:
+                raise ValueError("Invalid input")
 
+            request = {
+                "action": "buy_ticket",
+                "movie_id": self.selected_movie_id,
+                "customer_name": customer_name,
+                "number_of_tickets": ticket_qty
+            }
+            response = send_request(request)
+
+            if response["status"] == "success":
+                messagebox.showinfo("Success", response["message"])
+                self.refresh_movies()
+            else:
+                messagebox.showerror("Error", response["message"])
+
+        except ValueError as e:
+            messagebox.showerror("Error", "invalid input. Please enter a valid number of tickets and customer name.")
+    
     def remove_movie(self):
-        request = {
-            'action': 'remove_movie',
-            'movie_id': int(self.movie_id_entry.get())
-        }
+        if not self.selected_movie_id:
+            messagebox.showwarning("Warning", "Please select a movie first.")
+            return
 
+        request = {
+            "action": "remove_movie",
+            "movie_id": self.selected_movie_id
+        }
         response = send_request(request)
-        if response.get("status") == "success":
-            messagebox.showinfo("Success", "Movie removed successfully!")
+
+        if response["status"] == "success":
+            messagebox.showinfo("Success", response["message"])
+            self.refresh_movies()
         else:
-            messagebox.showerror("Error", response.get("message", "Unknown error"))
+            messagebox.showerror("Error", response["message"])
+
+    def add_movie(self, title, cinema_room, release_date, end_date, tickets_available, ticket_price):
+        request = {
+            "action": "add_movie",
+            "title": title,
+            "cinema_room": cinema_room,
+            "release_date": release_date,
+            "end_date": end_date,
+            "tickets_available": tickets_available,
+            "ticket_price": ticket_price
+        }
+        response = send_request(request)
+
+        if response["status"] == "success":
+            messagebox.showinfo("Success", response["message"])
+            self.refresh_movies()
+        else:
+            messagebox.showerror("Error", response["message"])
 
 def send_request(request):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
