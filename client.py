@@ -20,10 +20,13 @@ class CinemaClient:
         self.status_label = tk.Label(root, text="")
         self.status_label.pack()
 
-        self.ticket_qty_entry = tk.Entry(root)
-        self.ticket_qty_entry.pack(pady=5)
+        tk.Label(root, text="Customer Name:").pack(pady=5)
         self.customer_name_entry = tk.Entry(root)
         self.customer_name_entry.pack(pady=5)
+
+        tk.Label(root, text="Number of Tickets:").pack(pady=5)
+        self.ticket_qty_entry = tk.Entry(root)
+        self.ticket_qty_entry.pack(pady=5)
 
         self.buy_btn = tk.Button(root, text="Buy Ticket", command=self.buy_ticket)
         self.buy_btn.pack(pady=5)
@@ -78,9 +81,10 @@ class CinemaClient:
                 else:
                     messagebox.showerror("Error", response["message"])
             except ValueError:
-                messagebox.showerror("Input Error", "Please enter valid data.")
+                messagebox.showerror("Input Error", "Data entered incorrectly.")
 
         tk.Button(popup, text="Submit", command=submit).pack(pady=10)
+        self.refresh_movies
 
     def refresh_movies(self):
         response = send_request({"action": "get_movies"})
