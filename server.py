@@ -4,6 +4,7 @@ import json
 from threading import Thread
 import os
 
+# define the path to the database file
 project_dir = os.path.dirname(__file__)
 db = os.path.join(project_dir, "cinema.db")
 
@@ -15,6 +16,8 @@ class CinemaServer:
         self.conn = sqlite3.connect(db, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_tables()
+        # Set up the database with sample data of 7 movies if it is empty
+        self.set_up_database()
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
@@ -134,6 +137,26 @@ class CinemaServer:
             return json.dumps({"status": "success", "message": "Movie updated successfully"})
         except sqlite3.Error as e:
             return json.dumps({"status": "error", "message": str(e)})
+        
+    def set_up_database(self):
+        self.cursor.execute("SELECT COUNT(*) FROM Movies")
+        count = self.cursor.fetchone()[0]
+
+        if count == 0:
+            sample_movies = [
+                ("Inception", 1, "2025-06-01", "2025-06-25", 100, 80.0),
+                ("Interstellar", 2, "2025-04-10", "2025-07-30", 120, 75.0),
+                ("The Batman", 3, "2025-03-20", "2025-06-26", 90, 70.0),
+                ("Avatar 2", 4, "2025-06-01", "2025-08-23", 150, 85.0),
+                ("Oppenheimer", 5, "2023-02-14", "2023-06-22", 110, 78.0),
+                ("Spider-Man", 6, "2023-05-16", "2023-06-21", 130, 72.0),
+                ("Frozen 2", 7, "2023-06-12", "2023-08-02", 140, 65.0)
+            ]
+            self.cursor.executemany('''
+                INSERT INTO Movies (title, cinema_room, release_date, end_date, tickets_available, ticket_price)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ''', sample_movies)
+            self.conn.commit()
         
 def start_server():
     # Start the cinema server and listen for incoming connections
