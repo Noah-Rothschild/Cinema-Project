@@ -1,0 +1,5 @@
+Receipt:
+Movie id: 3
+Customer: Noah Rothschild
+Tickets: 5
+Total Price: R200.0
